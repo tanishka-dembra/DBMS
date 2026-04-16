@@ -17,7 +17,6 @@ import {
   IconButton,
   Menu,
   MenuItem,
-  NoSsr,
   Stack,
   Toolbar,
   Typography
@@ -80,36 +79,34 @@ export function PublicNavbar() {
 
           <Box flex={1} />
 
-          <NoSsr>
-            <Stack direction="row" spacing={0.1} sx={{ display: { xs: "none", lg: "flex" } }}>
-              {navItems.map((item) =>
-                item.recruiter ? (
-                  <Box key={item.label}>
-                    <Button
-                      color="inherit"
-                      onClick={(event) => setMenuAnchor(event.currentTarget)}
-                      startIcon={item.icon}
-                      endIcon={<ExpandMoreRoundedIcon sx={{ fontSize: 16 }} />}
-                      sx={{ px: 0.95, color: "inherit", fontSize: "0.8rem", "&:hover": { bgcolor: "rgba(255,255,255,0.08)" } }}
-                    >
-                      {item.label}
-                    </Button>
-                  </Box>
-                ) : (
+          <Stack direction="row" spacing={0.1} sx={{ display: { xs: "none", lg: "flex" } }}>
+            {navItems.map((item) =>
+              item.recruiter ? (
+                <Box key={item.label}>
                   <Button
-                    key={item.label}
-                    component={Link}
-                    href={item.href}
                     color="inherit"
+                    onClick={(event) => setMenuAnchor(event.currentTarget)}
                     startIcon={item.icon}
+                    endIcon={<ExpandMoreRoundedIcon sx={{ fontSize: 16 }} />}
                     sx={{ px: 0.95, color: "inherit", fontSize: "0.8rem", "&:hover": { bgcolor: "rgba(255,255,255,0.08)" } }}
                   >
                     {item.label}
                   </Button>
-                )
-              )}
-            </Stack>
-          </NoSsr>
+                </Box>
+              ) : (
+                <Button
+                  key={item.label}
+                  component={Link}
+                  href={item.href}
+                  color="inherit"
+                  startIcon={item.icon}
+                  sx={{ px: 0.95, color: "inherit", fontSize: "0.8rem", "&:hover": { bgcolor: "rgba(255,255,255,0.08)" } }}
+                >
+                  {item.label}
+                </Button>
+              )
+            )}
+          </Stack>
 
           <Stack direction="row" spacing={0.8} sx={{ display: { xs: "none", md: "flex" } }}>
             <Button
@@ -132,50 +129,46 @@ export function PublicNavbar() {
             </Button>
           </Stack>
 
-          <NoSsr>
-            <IconButton
-              color="inherit"
-              sx={{ display: { xs: "inline-flex", lg: "none" } }}
-              onClick={() => setMobileOpen(true)}
-            >
-              <MenuRoundedIcon />
-            </IconButton>
-          </NoSsr>
+          <IconButton
+            color="inherit"
+            sx={{ display: { xs: "inline-flex", lg: "none" } }}
+            onClick={() => setMobileOpen(true)}
+          >
+            <MenuRoundedIcon />
+          </IconButton>
         </Toolbar>
       </Container>
 
-      <NoSsr>
-        <Menu
-          anchorEl={menuAnchor}
-          open={Boolean(menuAnchor)}
-          onClose={() => setMenuAnchor(null)}
-          disableScrollLock
-          keepMounted
-          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-          transformOrigin={{ vertical: "top", horizontal: "center" }}
-          PaperProps={{
-            sx: {
-              mt: 1.5,
-              minWidth: 260,
-              borderRadius: 2,
-              p: 1,
-              boxShadow: "0 24px 60px rgba(17, 50, 22, 0.18)"
-            }
-          }}
-        >
-          {recruiterMenu.map((item) => (
-            <MenuItem
-              key={item.label}
-              component={Link}
-              href={item.href}
-              onClick={() => setMenuAnchor(null)}
-              sx={{ py: 1.25, borderRadius: 1 }}
-            >
-              {item.label}
-            </MenuItem>
-          ))}
-        </Menu>
-      </NoSsr>
+      <Menu
+        anchorEl={menuAnchor}
+        open={Boolean(menuAnchor)}
+        onClose={() => setMenuAnchor(null)}
+        disableScrollLock
+        keepMounted
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        transformOrigin={{ vertical: "top", horizontal: "center" }}
+        PaperProps={{
+          sx: {
+            mt: 1.5,
+            minWidth: 260,
+            borderRadius: 2,
+            p: 1,
+            boxShadow: "0 24px 60px rgba(17, 50, 22, 0.18)"
+          }
+        }}
+      >
+        {recruiterMenu.map((item) => (
+          <MenuItem
+            key={item.label}
+            component={Link}
+            href={item.href}
+            onClick={() => setMenuAnchor(null)}
+            sx={{ py: 1.25, borderRadius: 1 }}
+          >
+            {item.label}
+          </MenuItem>
+        ))}
+      </Menu>
 
       <Drawer
         anchor="right"

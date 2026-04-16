@@ -1,7 +1,6 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { backendApiBaseUrl } from "@/lib/api";
-import { validateRecruiterCredentials } from "@/lib/recruiters";
 
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET ?? "dev-secret",
@@ -51,23 +50,7 @@ export const authOptions: NextAuthOptions = {
           };
         }
 
-        if (credentials?.loginType === "admin") {
-          return null;
-        }
-
-        const recruiter = await validateRecruiterCredentials(email, password);
-        if (!recruiter) {
-          return null;
-        }
-
-        return {
-          id: recruiter.id,
-          name: recruiter.recruiterName,
-          email: recruiter.email,
-          designation: recruiter.designation,
-          companyName: recruiter.email,
-          role: "company"
-        };
+        return null;
       }
     })
   ],

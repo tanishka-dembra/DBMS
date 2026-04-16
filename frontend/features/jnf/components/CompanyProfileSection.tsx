@@ -203,25 +203,6 @@ export function CompanyProfileSection({ control, setValue }: Props) {
                 )}
               />
             </Grid>
-            <Grid size={{ xs: 12 }}>
-              <Button
-                variant="outlined"
-                onClick={() => {
-                  setValue("companyProfile.companyName", "IIT ISM Preferred Recruiter");
-                  setValue("companyProfile.website", "https://example.com");
-                  setValue("companyProfile.address", "Corporate Avenue, New Delhi, India");
-                  setValue("companyProfile.employees", "2500");
-                  setValue("companyProfile.annualTurnover", "INR 120 Cr");
-                  setValue("companyProfile.hqLocation", "New Delhi, India");
-                  setValue("companyProfile.linkedInUrl", "https://www.linkedin.com/company/example");
-                  setValue("companyProfile.description", "<p>Mock company profile loaded for onboarding review.</p>");
-                  setValue("companyProfile.industryTags", ["Technology", "Analytics", "Engineering"]);
-                  enqueueSnackbar("Mock company profile auto-filled", { variant: "info" });
-                }}
-              >
-                Autofill from mock company data
-              </Button>
-            </Grid>
           </Grid>
         </Stack>
       </CardContent>

@@ -106,18 +106,23 @@ export function EligibilityTab({ control, values, setValue, onApplySection }: Pr
   useEffect(() => {
     courseGroups.forEach((course) => {
       const key = courseKey(course);
-      const nextRows = course.branches.map((branch) => ({
+      const existingRows = values.eligibility.courses[key] ?? [];
+      const existingByBranchId = new Map(existingRows.map((row) => [row.branchId, row]));
+      const nextRows = course.branches.map((branch) => {
+        const existing = existingByBranchId.get(branch.branch_id);
+
+        return {
           branchId: branch.branch_id,
-          selected: false,
+          selected: existing?.selected ?? false,
           branch: branch.branch_name,
           department: branch.department_name ?? "",
-          cgpa: "0.00",
-          backlogsAllowed: true,
-          majorSelected: false,
-          minorSelected: false,
-          minorCgpa: "0.00"
-        }));
-      const existingRows = values.eligibility.courses[key] ?? [];
+          cgpa: existing?.cgpa ?? "0.00",
+          backlogsAllowed: existing?.backlogsAllowed ?? true,
+          majorSelected: existing?.majorSelected ?? false,
+          minorSelected: existing?.minorSelected ?? false,
+          minorCgpa: existing?.minorCgpa ?? "0.00"
+        };
+      });
       const existingBranchIds = existingRows.map((row) => row.branchId).sort((a, b) => (a ?? 0) - (b ?? 0));
       const nextBranchIds = nextRows.map((row) => row.branchId).sort((a, b) => (a ?? 0) - (b ?? 0));
       const hasMatchingBranches =

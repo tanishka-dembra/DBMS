@@ -19,7 +19,7 @@ import { JobProfileTab } from "@/features/jnf/components/JobProfileTab";
 import { SalaryTab } from "@/features/jnf/components/SalaryTab";
 import { SelectionProcessTab } from "@/features/jnf/components/SelectionProcessTab";
 import { JnfFormValues, jnfSchema } from "@/features/jnf/schemas";
-import { saveJnfToBackend } from "@/services/api/submissions";
+import { fetchSubmission, saveJnfToBackend, submissionToFormValues } from "@/services/api/submissions";
 
 const STORAGE_KEY = "iit-ism-jnf-draft";
 const META_STORAGE_KEY = "iit-ism-jnf-draft-meta";
@@ -115,6 +115,7 @@ export function JnfBuilder() {
   const { data: session } = useSession();
   const requestedTab = Number(searchParams.get("tab") ?? "0");
   const shouldLoadDraft = searchParams.get("loadDraft") === "1";
+  const requestedId = Number(searchParams.get("id") ?? "");
   const [activeTab, setActiveTab] = useState(Number.isNaN(requestedTab) ? 0 : requestedTab);
   const [jnfId, setJnfId] = useState<number | null>(null);
 
@@ -211,16 +212,31 @@ export function JnfBuilder() {
       return;
     }
 
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    const meta = window.localStorage.getItem(META_STORAGE_KEY);
-    if (stored) {
-      reset(mergeDraftWithDefaults(JSON.parse(stored) as Partial<JnfFormValues>));
-    }
-    if (meta) {
-      const parsed = JSON.parse(meta) as { jnfId?: number };
-      setJnfId(parsed.jnfId ?? null);
-    }
-  }, [reset, shouldLoadDraft]);
+    const loadDraft = async () => {
+      const token = session?.user?.apiToken;
+      if (token && Number.isFinite(requestedId) && requestedId > 0) {
+        const submission = await fetchSubmission(token, "jnf", requestedId);
+        if (submission) {
+          reset(submissionToFormValues(submission, "jnf"));
+          setJnfId(requestedId);
+          window.localStorage.setItem(META_STORAGE_KEY, JSON.stringify({ jnfId: requestedId }));
+          return;
+        }
+      }
+
+      const stored = window.localStorage.getItem(STORAGE_KEY);
+      const meta = window.localStorage.getItem(META_STORAGE_KEY);
+      if (stored) {
+        reset(mergeDraftWithDefaults(JSON.parse(stored) as Partial<JnfFormValues>));
+      }
+      if (meta) {
+        const parsed = JSON.parse(meta) as { jnfId?: number };
+        setJnfId(parsed.jnfId ?? null);
+      }
+    };
+
+    void loadDraft();
+  }, [reset, requestedId, session?.user?.apiToken, shouldLoadDraft]);
 
   useEffect(() => {
     if (!Number.isNaN(requestedTab) && requestedTab >= 0 && requestedTab < jnfTabs.length) {

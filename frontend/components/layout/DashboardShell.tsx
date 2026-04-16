@@ -26,7 +26,12 @@ import {
   Typography
 } from "@mui/material";
 import { dashboardNavItems } from "@/constants/jnf";
-import { backendApiBaseUrl } from "@/lib/api";
+import {
+  fetchNotifications,
+  markAllNotificationsRead as markAllNotificationsReadApi,
+  markNotificationRead as markNotificationReadApi,
+  NotificationItem
+} from "@/services/api/submissions";
 
 const drawerWidth = 280;
 
@@ -34,16 +39,6 @@ type Props = {
   title: string;
   action?: React.ReactNode;
   children: React.ReactNode;
-};
-
-type NotificationItem = {
-  notification_id: number;
-  title: string;
-  message?: string | null;
-  type?: "info" | "success" | "warning" | "error";
-  related_entity?: "company" | "jnf" | "inf" | "approval" | "email" | null;
-  related_id?: number | null;
-  is_read: boolean;
 };
 
 export function DashboardShell({ title, action, children }: Props) {
@@ -62,19 +57,7 @@ export function DashboardShell({ title, action, children }: Props) {
       return;
     }
 
-    const response = await fetch(`${backendApiBaseUrl}/notifications`, {
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${token}`
-      }
-    }).catch(() => null);
-
-    if (!response?.ok) {
-      return;
-    }
-
-    const payload = await response.json();
-    setNotifications(payload.data ?? []);
+    setNotifications(await fetchNotifications(token));
   };
 
   useEffect(() => {
@@ -87,13 +70,7 @@ export function DashboardShell({ title, action, children }: Props) {
     }
 
     setNotifications((current) => current.map((item) => ({ ...item, is_read: true })));
-    await fetch(`${backendApiBaseUrl}/notifications/mark-all-read`, {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${token}`
-      }
-    }).catch(() => null);
+    await markAllNotificationsReadApi(token).catch(() => null);
   };
 
   const markNotificationRead = async (item: NotificationItem) => {
@@ -106,13 +83,7 @@ export function DashboardShell({ title, action, children }: Props) {
         notification.notification_id === item.notification_id ? { ...notification, is_read: true } : notification
       )
     );
-    await fetch(`${backendApiBaseUrl}/notifications/${item.notification_id}/read`, {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${token}`
-      }
-    }).catch(() => null);
+    await markNotificationReadApi(token, item.notification_id).catch(() => null);
   };
 
   const navigation = (
@@ -178,12 +149,19 @@ export function DashboardShell({ title, action, children }: Props) {
         }}
       >
         <Box p={3} borderBottom="1px solid rgba(31, 107, 45, 0.12)">
-          <Typography variant="h6" fontWeight={900}>
-            Notifications
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Updates on JNF and INF activity.
-          </Typography>
+          <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2}>
+            <Box>
+              <Typography variant="h6" fontWeight={900}>
+                Notifications
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Updates on JNF and INF activity.
+              </Typography>
+            </Box>
+            <Button size="small" onClick={() => void markAllNotificationsRead()}>
+              Mark all read
+            </Button>
+          </Stack>
         </Box>
         <List sx={{ px: 2, py: 1 }}>
           {notifications.length === 0 ? (
@@ -216,7 +194,16 @@ export function DashboardShell({ title, action, children }: Props) {
               </ListItemIcon>
               <ListItemText
                 primary={item.title}
-                secondary={item.message}
+                secondary={
+                  <>
+                    <Typography component="span" variant="body2" color="text.secondary" display="block">
+                      {item.message}
+                    </Typography>
+                    <Typography component="span" variant="caption" color="text.secondary">
+                      {formatDateTime(item.created_at)}
+                    </Typography>
+                  </>
+                }
                 primaryTypographyProps={{ fontWeight: 700 }}
               />
             </ListItemButton>
@@ -253,7 +240,7 @@ export function DashboardShell({ title, action, children }: Props) {
                   aria-label="View notifications"
                   onClick={() => {
                     setNotificationsOpen(true);
-                    void markAllNotificationsRead();
+                    void loadNotifications();
                   }}
                 >
                   <Badge color="error" variant="dot" overlap="circular" invisible={!hasUnreadNotifications}>
@@ -313,4 +300,17 @@ function notificationHref(item: NotificationItem) {
   }
 
   return null;
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) {
+    return "Just now";
+  }
+
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(new Date(value));
 }

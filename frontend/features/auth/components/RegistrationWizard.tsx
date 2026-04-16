@@ -186,14 +186,6 @@ export function RegistrationWizard() {
                   </CardContent>
                 </Card>
               </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <Card variant="outlined">
-                  <CardContent>
-                    <Typography fontWeight={700}>reCAPTCHA Placeholder</Typography>
-                    <Typography color="text.secondary">Ready for backend integration.</Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
             </Grid>
           ) : null}
 

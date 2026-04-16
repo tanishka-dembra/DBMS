@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import SaveIcon from "@mui/icons-material/Save";
 import { Button, Card, CardContent, Stack, Tab, Tabs, Typography } from "@mui/material";
@@ -18,9 +19,10 @@ import { InternshipProfileTab } from "@/features/inf/components/InternshipProfil
 import { SalaryTab } from "@/features/jnf/components/SalaryTab";
 import { SelectionProcessTab } from "@/features/jnf/components/SelectionProcessTab";
 import { JnfFormValues, jnfSchema } from "@/features/jnf/schemas";
-import { mockSaveInf } from "@/services/api/mock";
+import { fetchSubmission, saveInfToBackend, submissionToFormValues } from "@/services/api/submissions";
 
 const STORAGE_KEY = "iit-ism-inf-draft";
+const META_STORAGE_KEY = "iit-ism-inf-draft-meta";
 const allowedSalaryComponents = new Set(additionalSalaryComponentTemplates);
 
 const isBranchSelected = (row: JnfFormValues["eligibility"]["courses"][string][number]) =>
@@ -110,9 +112,12 @@ function mergeDraftWithDefaults(parsed: Partial<JnfFormValues>): JnfFormValues {
 export function InfBuilder() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: session } = useSession();
   const requestedTab = Number(searchParams.get("tab") ?? "0");
   const shouldLoadDraft = searchParams.get("loadDraft") === "1";
+  const requestedId = Number(searchParams.get("id") ?? "");
   const [activeTab, setActiveTab] = useState(Number.isNaN(requestedTab) ? 0 : requestedTab);
+  const [infId, setInfId] = useState<number | null>(null);
 
   const form = useForm<JnfFormValues>({
     resolver: zodResolver(jnfSchema),
@@ -141,23 +146,41 @@ export function InfBuilder() {
 
   useEffect(() => {
     if (!shouldLoadDraft) {
+      reset(jnfDefaultValues);
+      window.localStorage.removeItem(META_STORAGE_KEY);
+      setInfId(null);
       return;
     }
 
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (!stored) {
-      enqueueSnackbar("No saved draft found for INF.", { variant: "info" });
-      return;
-    }
+    const loadDraft = async () => {
+      const token = session?.user?.apiToken;
+      if (token && Number.isFinite(requestedId) && requestedId > 0) {
+        const submission = await fetchSubmission(token, "inf", requestedId);
+        if (submission) {
+          reset(submissionToFormValues(submission, "inf"));
+          setInfId(requestedId);
+          window.localStorage.setItem(META_STORAGE_KEY, JSON.stringify({ infId: requestedId }));
+          return;
+        }
+      }
 
-    try {
-      const parsed = JSON.parse(stored) as Partial<JnfFormValues>;
-      reset(mergeDraftWithDefaults(parsed));
-      enqueueSnackbar("INF draft loaded.", { variant: "success" });
-    } catch {
-      enqueueSnackbar("Saved INF draft could not be loaded.", { variant: "error" });
-    }
-  }, [reset, shouldLoadDraft]);
+      const stored = window.localStorage.getItem(STORAGE_KEY);
+      const meta = window.localStorage.getItem(META_STORAGE_KEY);
+      if (stored) {
+        try {
+          reset(mergeDraftWithDefaults(JSON.parse(stored) as Partial<JnfFormValues>));
+        } catch {
+          enqueueSnackbar("Saved INF draft could not be loaded.", { variant: "error" });
+        }
+      }
+      if (meta) {
+        const parsed = JSON.parse(meta) as { infId?: number };
+        setInfId(parsed.infId ?? null);
+      }
+    };
+
+    void loadDraft();
+  }, [reset, requestedId, session?.user?.apiToken, shouldLoadDraft]);
 
   useEffect(() => {
     if (!Number.isNaN(requestedTab) && requestedTab >= 0 && requestedTab < infTabs.length) {
@@ -168,7 +191,15 @@ export function InfBuilder() {
   const persistDraft = async () => {
     const current = getValues();
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
-    await mockSaveInf(current);
+    const token = session?.user?.apiToken;
+
+    if (!token) {
+      throw new Error("Sign in again before saving this INF.");
+    }
+
+    const savedId = await saveInfToBackend(current, token, infId);
+    setInfId(savedId);
+    window.localStorage.setItem(META_STORAGE_KEY, JSON.stringify({ infId: savedId }));
     return current;
   };
 
@@ -179,8 +210,12 @@ export function InfBuilder() {
       return;
     }
 
-    await persistDraft();
-    router.push(`/inf/preview?mode=${mode}`);
+    try {
+      await persistDraft();
+      router.push(`/inf/preview?mode=${mode}`);
+    } catch (error) {
+      enqueueSnackbar(error instanceof Error ? error.message : "Could not save this INF.", { variant: "error" });
+    }
   };
 
   const handleTabChange = async (_: React.SyntheticEvent, nextTab: number) => {
@@ -192,9 +227,13 @@ export function InfBuilder() {
       }
     }
 
-    await persistDraft();
-    enqueueSnackbar(`${infTabs[activeTab]} auto-saved`, { variant: "success" });
-    setActiveTab(nextTab);
+    try {
+      await persistDraft();
+      enqueueSnackbar(`${infTabs[activeTab]} auto-saved`, { variant: "success" });
+      setActiveTab(nextTab);
+    } catch (error) {
+      enqueueSnackbar(error instanceof Error ? error.message : "Could not save this INF.", { variant: "error" });
+    }
   };
 
   const applySectionEligibility = (sectionKey: string) => {
@@ -236,9 +275,13 @@ export function InfBuilder() {
             variant="outlined"
             startIcon={<SaveIcon />}
             onClick={async () => {
-              await persistDraft();
-              enqueueSnackbar("Draft saved successfully", { variant: "success" });
-              router.push("/dashboard");
+              try {
+                await persistDraft();
+                enqueueSnackbar("Draft saved successfully", { variant: "success" });
+                router.push("/dashboard");
+              } catch (error) {
+                enqueueSnackbar(error instanceof Error ? error.message : "Could not save this draft.", { variant: "error" });
+              }
             }}
           >
             Save Draft

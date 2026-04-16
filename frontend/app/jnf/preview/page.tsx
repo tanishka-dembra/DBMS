@@ -9,7 +9,7 @@ import { DashboardShell } from "@/components/layout/DashboardShell";
 import { jnfDefaultValues } from "@/features/jnf/defaultValues";
 import { PreviewSummary } from "@/features/jnf/components/PreviewSummary";
 import { JnfFormValues } from "@/features/jnf/schemas";
-import { submitJnfToBackend } from "@/services/api/submissions";
+import { fetchSubmission, submissionToFormValues, submitJnfToBackend } from "@/services/api/submissions";
 
 const STORAGE_KEY = "iit-ism-jnf-draft";
 const META_STORAGE_KEY = "iit-ism-jnf-draft-meta";
@@ -19,16 +19,31 @@ function PreviewPageContent() {
   const searchParams = useSearchParams();
   const { data: session } = useSession();
   const mode = searchParams.get("mode") === "dedicated" ? "dedicated" : "review";
+  const requestedId = Number(searchParams.get("id") ?? "");
   const [data, setData] = useState<JnfFormValues | null>(null);
   const [jnfId, setJnfId] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    const meta = window.localStorage.getItem(META_STORAGE_KEY);
-    setData(stored ? JSON.parse(stored) : jnfDefaultValues);
-    setJnfId(meta ? (JSON.parse(meta) as { jnfId?: number }).jnfId ?? null : null);
-  }, []);
+    const loadPreview = async () => {
+      const token = session?.user?.apiToken;
+      if (token && Number.isFinite(requestedId) && requestedId > 0) {
+        const submission = await fetchSubmission(token, "jnf", requestedId);
+        if (submission) {
+          setData(submissionToFormValues(submission, "jnf"));
+          setJnfId(requestedId);
+          return;
+        }
+      }
+
+      const stored = window.localStorage.getItem(STORAGE_KEY);
+      const meta = window.localStorage.getItem(META_STORAGE_KEY);
+      setData(stored ? JSON.parse(stored) : jnfDefaultValues);
+      setJnfId(meta ? (JSON.parse(meta) as { jnfId?: number }).jnfId ?? null : null);
+    };
+
+    void loadPreview();
+  }, [requestedId, session?.user?.apiToken]);
 
   if (!data) {
     return (
@@ -64,6 +79,7 @@ function PreviewPageContent() {
             window.localStorage.removeItem(META_STORAGE_KEY);
             enqueueSnackbar("JNF submitted successfully", { variant: "success" });
             router.push("/dashboard");
+            router.refresh();
           } catch {
             enqueueSnackbar("Could not submit this JNF. Please try again.", { variant: "error" });
           } finally {

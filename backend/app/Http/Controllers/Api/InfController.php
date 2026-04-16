@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\Inf;
+use App\Models\User;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -90,6 +91,21 @@ class InfController extends Controller
         $fromStatus = $inf->status;
         $inf->update(['status' => 'submitted']);
         $this->notifications->logStatusChange('inf', $inf, $request->user(), $fromStatus, 'submitted', 'Submitted by company.');
+        $inf->loadMissing('company');
+
+        User::query()->where('role', 'admin')->get()->each(function (User $admin) use ($inf): void {
+            $this->notifications->notifyUser(
+                $admin,
+                'New INF submitted',
+                "{$inf->company?->company_name} submitted {$inf->title} for review.",
+                'info',
+                'inf',
+                $inf->inf_id,
+                sendEmail: false,
+                company: $inf->company,
+            );
+        });
+
         $this->notifications->sendAndLogEmail(
             $request->user(),
             'INF submitted',
