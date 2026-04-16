@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { registrationSchema } from "@/features/auth/schemas";
-import { createRecruiter } from "@/lib/recruiters";
+import { backendApiBaseUrl } from "@/lib/api";
 import { verifyOtp } from "@/lib/otp";
 
 export const runtime = "nodejs";
@@ -21,26 +21,45 @@ export async function POST(request: Request) {
   }
 
   try {
-    const recruiter = await createRecruiter({
-      email: values.email,
-      recruiterName: values.recruiterName,
-      designation: values.designation,
-      contactNumber: values.contactNumber,
-      alternateNumber: values.alternateNumber,
-      password: values.password
+    const domain = values.email.split("@")[1]?.split(".")[0] ?? "Company";
+    const companyName = domain
+      .split(/[-_]/)
+      .filter(Boolean)
+      .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
+      .join(" ");
+
+    const response = await fetch(`${backendApiBaseUrl}/auth/register`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        name: values.recruiterName,
+        email: values.email,
+        password: values.password,
+        password_confirmation: values.confirmPassword,
+        company_name: companyName || values.email,
+        website: null
+      })
     });
+
+    const payload = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      return NextResponse.json(
+        { ok: false, message: payload?.message ?? "Unable to create recruiter account." },
+        { status: response.status }
+      );
+    }
 
     return NextResponse.json({
       ok: true,
-      recruiter: {
-        id: recruiter.id,
-        email: recruiter.email,
-        recruiterName: recruiter.recruiterName
-      }
+      recruiter: payload?.user,
+      company: payload?.company
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to create recruiter account.";
     return NextResponse.json({ ok: false, message }, { status: 400 });
   }
 }
-

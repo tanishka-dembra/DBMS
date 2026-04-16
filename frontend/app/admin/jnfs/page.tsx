@@ -1,4 +1,4 @@
-import { Box, Card, CardContent, Container, Stack, Typography } from "@mui/material";
+import { Box, Card, CardContent, Container, Grid2 as Grid, Stack, Typography } from "@mui/material";
 import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import { PublicNavbar } from "@/components/layout/PublicNavbar";
@@ -27,6 +27,16 @@ export default async function AdminJnfReviewPage() {
   }).catch(() => null);
 
   const payload = response?.ok ? await response.json() : { data: [] };
+  const dashboardResponse = await fetch(`${backendApiBaseUrl}/admin/dashboard`, {
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${session.user.apiToken}`
+    },
+    cache: "no-store"
+  }).catch(() => null);
+  const dashboardPayload = dashboardResponse?.ok ? await dashboardResponse.json() : { data: {} };
+  const stats = dashboardPayload.data ?? {};
+  const jnfCounts = stats.jnfs_by_status ?? {};
 
   return (
     <Box>
@@ -58,8 +68,35 @@ export default async function AdminJnfReviewPage() {
           </Card>
 
           <AdminJnfReviewList initialJnfs={payload.data} token={session.user.apiToken} />
+
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, md: 4 }}>
+              <AdminStatCard label="Total JNFs" value={stats.totals?.jnfs ?? 0} />
+            </Grid>
+            <Grid size={{ xs: 12, md: 4 }}>
+              <AdminStatCard label="Pending Reviews" value={jnfCounts.submitted ?? 0} />
+            </Grid>
+            <Grid size={{ xs: 12, md: 4 }}>
+              <AdminStatCard label="Accepted JNFs" value={jnfCounts.approved ?? 0} />
+            </Grid>
+          </Grid>
         </Stack>
       </Container>
     </Box>
+  );
+}
+
+function AdminStatCard({ label, value }: { label: string; value: number }) {
+  return (
+    <Card>
+      <CardContent>
+        <Typography variant="overline" color="text.secondary">
+          {label}
+        </Typography>
+        <Typography variant="h4" fontWeight={900}>
+          {value}
+        </Typography>
+      </CardContent>
+    </Card>
   );
 }

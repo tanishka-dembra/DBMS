@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\Jnf;
+use App\Models\User;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -90,6 +91,21 @@ class JnfController extends Controller
         $fromStatus = $jnf->status;
         $jnf->update(['status' => 'submitted']);
         $this->notifications->logStatusChange('jnf', $jnf, $request->user(), $fromStatus, 'submitted', 'Submitted by company.');
+        $jnf->loadMissing('company');
+
+        User::query()->where('role', 'admin')->get()->each(function (User $admin) use ($jnf): void {
+            $this->notifications->notifyUser(
+                $admin,
+                'New JNF submitted',
+                "{$jnf->company?->company_name} submitted {$jnf->title} for review.",
+                'info',
+                'jnf',
+                $jnf->jnf_id,
+                sendEmail: false,
+                company: $jnf->company,
+            );
+        });
+
         $this->notifications->sendAndLogEmail(
             $request->user(),
             'JNF submitted',

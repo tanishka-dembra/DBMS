@@ -20,24 +20,6 @@ export async function mockRegisterRecruiter(payload: RegistrationFormValues) {
   };
 }
 
-export async function mockSaveJnf(payload: JnfFormValues) {
-  await delay(700);
-  return {
-    success: true,
-    savedAt: new Date().toISOString(),
-    payload
-  };
-}
-
-export async function mockSubmitJnf(payload: JnfFormValues) {
-  await delay(1200);
-  return {
-    success: true,
-    referenceId: `JNF-${Date.now()}`,
-    payload
-  };
-}
-
 export async function mockSaveInf(payload: JnfFormValues) {
   await delay(700);
   return {

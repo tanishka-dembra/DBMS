@@ -25,6 +25,9 @@ export function ProposalList({ title, proposals }: Props) {
         <Typography variant="h5" fontWeight={900} gutterBottom>
           {title}
         </Typography>
+        {proposals.length === 0 ? (
+          <Typography color="text.secondary">No submissions found yet.</Typography>
+        ) : null}
         <Stack spacing={2}>
           {proposals.map((proposal) => (
             <Card key={proposal.id} variant="outlined">

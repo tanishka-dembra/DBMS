@@ -123,13 +123,19 @@ class AuthController extends Controller
             $resetUrl = rtrim((string) config('app.frontend_url', env('FRONTEND_URL', 'http://localhost:3000')), '/')
                 .'/reset-password?email='.urlencode($user->email).'&token='.$plainToken;
 
-            $this->notifications->sendAndLogEmail(
+            $emailLog = $this->notifications->sendAndLogEmail(
                 $user,
                 'Reset your placement portal password',
                 "Use this link to reset your password. It expires in 30 minutes.\n\n{$resetUrl}",
                 'notification',
                 $user->company,
             );
+
+            if ($emailLog->status === 'failed') {
+                return response()->json([
+                    'message' => 'Password reset email could not be sent. Check SMTP configuration.',
+                ], 500);
+            }
         }
 
         return response()->json([

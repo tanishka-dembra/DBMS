@@ -2,14 +2,17 @@ import AddIcon from "@mui/icons-material/Add";
 import { Box, Button, Card, CardContent, Grid2 as Grid, Stack, Typography } from "@mui/material";
 import { getServerSession } from "next-auth/next";
 import { DashboardShell } from "@/components/layout/DashboardShell";
-import { recruiterProposals } from "@/constants/jnf";
 import { ProposalList } from "@/features/dashboard/components/ProposalList";
 import { authOptions } from "@/lib/auth";
+import { dashboardToProposals, fetchCompanyDashboard } from "@/services/api/submissions";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
   const companyName = session?.user?.companyName ?? "Recruiter Workspace";
   const contactName = session?.user?.name ?? "Recruiter";
+  const dashboard = session?.user?.apiToken ? await fetchCompanyDashboard(session.user.apiToken) : {};
+  const proposals = dashboardToProposals(dashboard);
+  const jnfCounts = dashboard.jnfs_by_status ?? {};
 
   return (
     <DashboardShell title="Recruiter Dashboard">
@@ -48,9 +51,38 @@ export default async function DashboardPage() {
         </Grid>
 
         <Grid size={{ xs: 12 }}>
-          <ProposalList title="Current Proposals" proposals={recruiterProposals} />
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, md: 4 }}>
+              <StatCard label="Total JNFs" value={dashboard.totals?.jnfs ?? 0} />
+            </Grid>
+            <Grid size={{ xs: 12, md: 4 }}>
+              <StatCard label="Pending Reviews" value={jnfCounts.submitted ?? 0} />
+            </Grid>
+            <Grid size={{ xs: 12, md: 4 }}>
+              <StatCard label="Accepted JNFs" value={jnfCounts.approved ?? 0} />
+            </Grid>
+          </Grid>
+        </Grid>
+
+        <Grid size={{ xs: 12 }}>
+          <ProposalList title="Current Proposals" proposals={proposals} />
         </Grid>
       </Grid>
     </DashboardShell>
+  );
+}
+
+function StatCard({ label, value }: { label: string; value: number }) {
+  return (
+    <Card>
+      <CardContent>
+        <Typography variant="overline" color="text.secondary">
+          {label}
+        </Typography>
+        <Typography variant="h4" fontWeight={900}>
+          {value}
+        </Typography>
+      </CardContent>
+    </Card>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import MenuRoundedIcon from "@mui/icons-material/MenuRounded";
@@ -25,7 +25,8 @@ import {
   Toolbar,
   Typography
 } from "@mui/material";
-import { dashboardNavItems, recruiterNotifications } from "@/constants/jnf";
+import { dashboardNavItems } from "@/constants/jnf";
+import { backendApiBaseUrl } from "@/lib/api";
 
 const drawerWidth = 280;
 
@@ -35,14 +36,84 @@ type Props = {
   children: React.ReactNode;
 };
 
+type NotificationItem = {
+  notification_id: number;
+  title: string;
+  message?: string | null;
+  type?: "info" | "success" | "warning" | "error";
+  related_entity?: "company" | "jnf" | "inf" | "approval" | "email" | null;
+  related_id?: number | null;
+  is_read: boolean;
+};
+
 export function DashboardShell({ title, action, children }: Props) {
   const { data: session } = useSession();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [accountMenuAnchor, setAccountMenuAnchor] = useState<null | HTMLElement>(null);
-  const [notifications, setNotifications] = useState([...recruiterNotifications]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const router = useRouter();
-  const hasUnreadNotifications = notifications.some((item) => !item.read);
+  const token = session?.user?.apiToken;
+  const hasUnreadNotifications = notifications.some((item) => !item.is_read);
+
+  const loadNotifications = async () => {
+    if (!token) {
+      setNotifications([]);
+      return;
+    }
+
+    const response = await fetch(`${backendApiBaseUrl}/notifications`, {
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`
+      }
+    }).catch(() => null);
+
+    if (!response?.ok) {
+      return;
+    }
+
+    const payload = await response.json();
+    setNotifications(payload.data ?? []);
+  };
+
+  useEffect(() => {
+    void loadNotifications();
+  }, [token]);
+
+  const markAllNotificationsRead = async () => {
+    if (!token) {
+      return;
+    }
+
+    setNotifications((current) => current.map((item) => ({ ...item, is_read: true })));
+    await fetch(`${backendApiBaseUrl}/notifications/mark-all-read`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`
+      }
+    }).catch(() => null);
+  };
+
+  const markNotificationRead = async (item: NotificationItem) => {
+    if (!token || item.is_read) {
+      return;
+    }
+
+    setNotifications((current) =>
+      current.map((notification) =>
+        notification.notification_id === item.notification_id ? { ...notification, is_read: true } : notification
+      )
+    );
+    await fetch(`${backendApiBaseUrl}/notifications/${item.notification_id}/read`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`
+      }
+    }).catch(() => null);
+  };
 
   const navigation = (
     <>
@@ -115,31 +186,37 @@ export function DashboardShell({ title, action, children }: Props) {
           </Typography>
         </Box>
         <List sx={{ px: 2, py: 1 }}>
+          {notifications.length === 0 ? (
+            <ListItemText primary="No notifications yet" secondary="New updates will appear here." sx={{ px: 2, py: 1 }} />
+          ) : null}
           {notifications.map((item) => (
             <ListItemButton
-              key={item.id}
+              key={item.notification_id}
               onClick={() => {
-                if (item.href && item.variant !== "submitted") {
+                void markNotificationRead(item);
+                const href = notificationHref(item);
+                if (href) {
                   setNotificationsOpen(false);
-                  router.push(item.href);
+                  router.push(href);
                 }
               }}
               sx={{
                 mb: 1,
                 borderRadius: 3,
                 alignItems: "flex-start",
-                cursor: item.href && item.variant !== "submitted" ? "pointer" : "default"
+                cursor: notificationHref(item) ? "pointer" : "default"
               }}
             >
               <ListItemIcon sx={{ minWidth: 32, mt: 0.5 }}>
                 <Badge
                   variant="dot"
-                  color={item.variant === "accepted" ? "success" : item.variant === "open_edit" ? "info" : "warning"}
+                  invisible={item.is_read}
+                  color={item.type === "success" ? "success" : item.type === "error" ? "error" : item.type === "warning" ? "warning" : "info"}
                 />
               </ListItemIcon>
               <ListItemText
                 primary={item.title}
-                secondary={item.description}
+                secondary={item.message}
                 primaryTypographyProps={{ fontWeight: 700 }}
               />
             </ListItemButton>
@@ -176,7 +253,7 @@ export function DashboardShell({ title, action, children }: Props) {
                   aria-label="View notifications"
                   onClick={() => {
                     setNotificationsOpen(true);
-                    setNotifications((current) => current.map((item) => ({ ...item, read: true })));
+                    void markAllNotificationsRead();
                   }}
                 >
                   <Badge color="error" variant="dot" overlap="circular" invisible={!hasUnreadNotifications}>
@@ -220,4 +297,20 @@ export function DashboardShell({ title, action, children }: Props) {
       </Box>
     </Box>
   );
+}
+
+function notificationHref(item: NotificationItem) {
+  if (item.related_entity === "jnf") {
+    return "/dashboard/my-jnfs";
+  }
+
+  if (item.related_entity === "inf") {
+    return "/dashboard/my-infs";
+  }
+
+  if (item.related_entity === "company") {
+    return "/dashboard";
+  }
+
+  return null;
 }

@@ -9,6 +9,7 @@ use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class NotificationService
@@ -71,8 +72,13 @@ class NotificationService
             Mail::raw($body, function ($message) use ($user, $subject): void {
                 $message->to($user->email)->subject($subject);
             });
-        } catch (Throwable) {
+        } catch (Throwable $exception) {
             $status = 'failed';
+            Log::error('Email delivery failed.', [
+                'recipient' => $user->email,
+                'subject' => $subject,
+                'error' => $exception->getMessage(),
+            ]);
         }
 
         return EmailLog::query()->create([

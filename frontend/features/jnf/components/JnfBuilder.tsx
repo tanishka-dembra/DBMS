@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import SaveIcon from "@mui/icons-material/Save";
 import { Button, Card, CardContent, Stack, Tab, Tabs, Typography } from "@mui/material";
@@ -18,9 +19,10 @@ import { JobProfileTab } from "@/features/jnf/components/JobProfileTab";
 import { SalaryTab } from "@/features/jnf/components/SalaryTab";
 import { SelectionProcessTab } from "@/features/jnf/components/SelectionProcessTab";
 import { JnfFormValues, jnfSchema } from "@/features/jnf/schemas";
-import { mockSaveJnf } from "@/services/api/mock";
+import { saveJnfToBackend } from "@/services/api/submissions";
 
 const STORAGE_KEY = "iit-ism-jnf-draft";
+const META_STORAGE_KEY = "iit-ism-jnf-draft-meta";
 const allowedSalaryComponents = new Set(additionalSalaryComponentTemplates);
 
 const isBranchSelected = (row: JnfFormValues["eligibility"]["courses"][string][number]) =>
@@ -110,9 +112,11 @@ function mergeDraftWithDefaults(parsed: Partial<JnfFormValues>): JnfFormValues {
 export function JnfBuilder() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: session } = useSession();
   const requestedTab = Number(searchParams.get("tab") ?? "0");
   const shouldLoadDraft = searchParams.get("loadDraft") === "1";
   const [activeTab, setActiveTab] = useState(Number.isNaN(requestedTab) ? 0 : requestedTab);
+  const [jnfId, setJnfId] = useState<number | null>(null);
 
   const form = useForm<JnfFormValues>({
     resolver: zodResolver(jnfSchema),
@@ -202,12 +206,19 @@ export function JnfBuilder() {
   useEffect(() => {
     if (!shouldLoadDraft) {
       reset(jnfDefaultValues);
+      window.localStorage.removeItem(META_STORAGE_KEY);
+      setJnfId(null);
       return;
     }
 
     const stored = window.localStorage.getItem(STORAGE_KEY);
+    const meta = window.localStorage.getItem(META_STORAGE_KEY);
     if (stored) {
       reset(mergeDraftWithDefaults(JSON.parse(stored) as Partial<JnfFormValues>));
+    }
+    if (meta) {
+      const parsed = JSON.parse(meta) as { jnfId?: number };
+      setJnfId(parsed.jnfId ?? null);
     }
   }, [reset, shouldLoadDraft]);
 
@@ -220,7 +231,15 @@ export function JnfBuilder() {
   const persistDraft = async () => {
     const current = getValues();
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
-    await mockSaveJnf(current);
+    const token = session?.user?.apiToken;
+
+    if (!token) {
+      throw new Error("Sign in again before saving this JNF.");
+    }
+
+    const savedId = await saveJnfToBackend(current, token, jnfId);
+    setJnfId(savedId);
+    window.localStorage.setItem(META_STORAGE_KEY, JSON.stringify({ jnfId: savedId }));
     return current;
   };
 
@@ -231,8 +250,12 @@ export function JnfBuilder() {
       return;
     }
 
-    await persistDraft();
-    router.push(`/jnf/preview?mode=${mode}`);
+    try {
+      await persistDraft();
+      router.push(`/jnf/preview?mode=${mode}`);
+    } catch (error) {
+      enqueueSnackbar(error instanceof Error ? error.message : "Could not save this JNF.", { variant: "error" });
+    }
   };
 
   const handleTabChange = async (_: React.SyntheticEvent, nextTab: number) => {
@@ -267,9 +290,13 @@ export function JnfBuilder() {
     }
   }
 
-    await persistDraft();
-    enqueueSnackbar(`${jnfTabs[activeTab]} auto-saved`, { variant: "success" });
-    setActiveTab(nextTab);
+    try {
+      await persistDraft();
+      enqueueSnackbar(`${jnfTabs[activeTab]} auto-saved`, { variant: "success" });
+      setActiveTab(nextTab);
+    } catch (error) {
+      enqueueSnackbar(error instanceof Error ? error.message : "Could not save this JNF.", { variant: "error" });
+    }
   };
 
   const applySectionEligibility = (sectionKey: string) => {
@@ -311,9 +338,13 @@ export function JnfBuilder() {
             variant="outlined"
             startIcon={<SaveIcon />}
             onClick={async () => {
-              await persistDraft();
-              enqueueSnackbar("Draft saved successfully", { variant: "success" });
-              router.push("/dashboard");
+              try {
+                await persistDraft();
+                enqueueSnackbar("Draft saved successfully", { variant: "success" });
+                router.push("/dashboard");
+              } catch (error) {
+                enqueueSnackbar(error instanceof Error ? error.message : "Could not save this draft.", { variant: "error" });
+              }
             }}
           >
             Save Draft
