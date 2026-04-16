@@ -1,0 +1,43 @@
+{
+  "name": "iit-ism-jnf-portal",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "clean": "node -e \"require('fs').rmSync('.next',{ recursive:true, force:true })\"",
+    "dev": "next dev",
+    "dev:clean": "npm run clean && next dev",
+    "build": "next build",
+    "start": "next start",
+    "start:clean": "npm run clean && npm run build && next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@emotion/cache": "^11.14.0",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@hookform/resolvers": "^3.10.0",
+    "@mui/icons-material": "6.5.0",
+    "@mui/material": "6.5.0",
+    "@mui/material-nextjs": "^6.5.0",
+    "@types/nodemailer": "^8.0.0",
+    "@types/papaparse": "^5.5.2",
+    "axios": "^1.8.4",
+    "next": "latest",
+    "next-auth": "^4.24.14",
+    "nodemailer": "^7.0.13",
+    "notistack": "^3.0.1",
+    "papaparse": "^5.5.3",
+    "react": "latest",
+    "react-dom": "latest",
+    "react-hook-form": "^7.56.3",
+    "zod": "^3.24.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.14",
+    "@types/react": "^19.0.12",
+    "@types/react-dom": "^19.0.4",
+    "eslint": "^9.23.0",
+    "eslint-config-next": "latest",
+    "typescript": "^5.8.2"
+  }
+}

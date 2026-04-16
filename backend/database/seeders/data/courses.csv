@@ -1,0 +1,8 @@
+"id","name","type","duration","admission_type"
+"btech","B.Tech","JNF","4","JEE Advanced"
+"dual_degree","Dual Degree","JNF","5","JEE Advanced"
+"integrated_mtech","Integrated M.Tech","JNF","5","JEE Advanced"
+"mtech","M.Tech","JNF","2","GATE"
+"msc_tech","MSc Tech","JNF","3","JAM"
+"mba","MBA","JNF","2","CAT"
+"msc","MSc","JNF","2","JAM"
